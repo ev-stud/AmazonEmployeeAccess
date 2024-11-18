@@ -1,0 +1,212 @@
+
+R version 4.4.1 (2024-06-14) -- "Race for Your Life"
+Copyright (C) 2024 The R Foundation for Statistical Computing
+Platform: x86_64-apple-darwin20
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(tidyverse)
+── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+✔ dplyr     1.1.4     ✔ readr     2.1.5
+✔ forcats   1.0.0     ✔ stringr   1.5.1
+✔ ggplot2   3.5.1     ✔ tibble    3.2.1
+✔ lubridate 1.9.3     ✔ tidyr     1.3.1
+✔ purrr     1.0.2     
+── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()
+ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
+> library(vroom)
+
+Attaching package: ‘vroom’
+
+The following objects are masked from ‘package:readr’:
+
+    as.col_spec, col_character, col_date, col_datetime, col_double,
+    col_factor, col_guess, col_integer, col_logical, col_number,
+    col_skip, col_time, cols, cols_condense, cols_only, date_names,
+    date_names_lang, date_names_langs, default_locale, fwf_cols,
+    fwf_empty, fwf_positions, fwf_widths, locale, output_column,
+    problems, spec
+
+> 
+> traindat <- vroom("train.csv")
+Rows: 32769 Columns: 10
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+dbl (10): ACTION, RESOURCE, MGR_ID, ROLE_ROLLUP_1, ROLE_ROLLUP_2, ROLE_DEPTN...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+> testdat <- vroom("test.csv")
+Rows: 58921 Columns: 10
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+dbl (10): id, RESOURCE, MGR_ID, ROLE_ROLLUP_1, ROLE_ROLLUP_2, ROLE_DEPTNAME,...
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+> 
+> # Feature Engineering ----------------------------------------------------------------
+> 
+> 
+> # Logistic Regression -----------------------------------------------------
+> #library(tidymodels)
+> 
+> # Feature Engineering
+> # my_recipe <- recipe(ACTION~., traindat) %>% # use traindat dataset as a template
+> #   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # convert numerics to factor
+> #   step_other(all_nominal_predictors(), threshold = .01) %>% # lumps factors together with too few datapoints
+> #   step_dummy(all_nominal_predictors()) 
+> # 
+> # prepped <- prep(my_recipe)
+> # baked <- bake(prepped, traindat) # the data you want to clean
+> # 
+> # traindat$ACTION <- as.factor(traindat$ACTION)
+> # 
+> # logRegModel <- logistic_reg() %>%
+> #   set_engine("glm") 
+> # 
+> # logRegWF <- workflow() %>%
+> #   add_recipe(my_recipe) %>%
+> #   add_model(logRegModel) %>%
+> #   fit(data=traindat)
+> # 
+> # logRpreds <- predict(logRegWF, new_data = testdat, 
+> #                      type = "prob") # type: classification/probability
+> 
+> 
+> 
+> 
+> # Penalized Logistic Regression -------------------------------------------
+> # library(embed) # for target encoding
+> # 
+> # # Feature Engineering
+> # tencode_recipe <- recipe(ACTION~., traindat) %>% # use traindat dataset as a template
+> #   step_mutate_at(all_numeric_predictors(), fn = factor) %>% # convert numerics to factor
+> #   step_lencode_mixed(all_nominal_predictors(), outcome=vars(ACTION)) %>% # *target encoding*
+> #   step_normalize(all_nominal_predictors()) # normalize for penalized regression
+> # # no need for step other since target encoding doesn't overfit
+> # 
+> # pen_log_mod <- logistic_reg(mixture=tune(),
+> #                             penalty = tune()) %>%
+> #   set_engine("glmnet")
+> # 
+> # pen_log_wf <- workflow() %>%
+> #   add_recipe(tencode_recipe) %>%
+> #   add_model(pen_log_mod)
+> # 
+> # tuning_grid <- grid_regular(penalty(),
+> #                             mixture(),
+> #                             levels = 7) # grid of L^2 tuning possibilities
+> # 
+> # folds <- vfold_cv(traindat, v = 5, repeats =1) # K-folds
+> # 
+> # cv_results <- pen_log_wf %>%
+> #   tune_grid(resamples=folds,
+> #             grid=tuning_grid,
+> #             metrics=metric_set(roc_auc,f_meas,sens,recall,spec,precision,accuracy))
+> # 
+> # bestTune <- cv_results %>%
+> #   select_best(metric="roc_auc")
+> # 
+> # final_wf <- pen_log_wf %>%
+> #   finalize_workflow(bestTune) %>% 
+> #   fit(data=traindat)
+> # 
+> # SFTP_export <- final_wf %>% 
+> #   predict(new_data= testdat, type="prob") %>%
+> #   bind_cols(testdat) %>%
+> #   rename(ACTION=.pred_1) %>% # pred_1 is prediction on response = 1, pred_0 for respones=0
+> #   select(id,ACTION)
+> # 
+> # 
+> # vroom_write(SFTP_export,"./AmazonAccess/amazonSubmission.csv", delim = ",")
+> # save(file="./amazonSFTP.RData", list=c("final_wf","SFTP_export"))
+> 
+> 
+> # Regression Trees Classification -----------------------------------------
+> library(tidymodels)
+── Attaching packages ────────────────────────────────────── tidymodels 1.2.0 ──
+✔ broom        1.0.6     ✔ rsample      1.2.1
+✔ dials        1.3.0     ✔ tune         1.2.1
+✔ infer        1.0.7     ✔ workflows    1.1.4
+✔ modeldata    1.4.0     ✔ workflowsets 1.1.0
+✔ parsnip      1.2.1     ✔ yardstick    1.3.1
+✔ recipes      1.1.0     
+── Conflicts ───────────────────────────────────────── tidymodels_conflicts() ──
+✖ scales::discard() masks purrr::discard()
+✖ dplyr::filter()   masks stats::filter()
+✖ recipes::fixed()  masks stringr::fixed()
+✖ dplyr::lag()      masks stats::lag()
+✖ yardstick::spec() masks vroom::spec(), readr::spec()
+✖ recipes::step()   masks stats::step()
+• Use tidymodels_prefer() to resolve common conflicts.
+> library(embed)
+> library(ranger)
+> 
+> # using SMOTE balancing
+> library(themis) # smote
+> 
+> smote_recipe <- recipe(ACTION~., data = traindat) %>%
++   step_mutate_at(all_numeric_predictors(), fn=factor) %>%
++   step_lencode_mixed(all_nominal_predictors(), outcome=vars(ACTION)) %>% # feature encoding
++   step_normalize(all_predictors()) %>% # normalize everything for eigenvectors
++   #step_pca(all_predictors(), threshold = 0.95) %>% # optional: use pca (reduction of features)
++   step_smote(all_outcomes(), neighbors=4) # K neighbors
+>   # OR step_upsample(all_outcomes()) OR step_downsample(all_outcomes())
+> 
+> rf_mod <- rand_forest(mtry = tune(),
++                       min_n = tune(),
++                       trees=1000) %>%
++   set_engine("ranger") %>%
++   set_mode("classification")
+> 
+> rf_wf <- workflow() %>%
++   add_recipe(smote_recipe) %>%
++   add_model(rf_mod)
+> 
+> tuning_grid <- grid_regular(finalize(mtry(), traindat),
++                             min_n(),
++                             levels = 5) # grid of L^2 tuning possibilities
+> 
+> folds <- vfold_cv(traindat, v = 10, repeats =1) # K-folds
+> 
+> cv_rf_results <- rf_wf %>%
++   tune_grid(resamples=folds,
++             grid=tuning_grid,
++             metrics=NULL) #metric_set(roc_auc,f_meas,sens,recall,spec,precision,accuracy)
+→ A | error:   Error in `step_smote()`:
+               Caused by error in `prep()`:
+               ! `ACTION` should be a factor variable.
+There were issues with some computations   A: x1There were issues with some computations   A: x2There were issues with some computations   A: x3There were issues with some computations   A: x4There were issues with some computations   A: x5There were issues with some computations   A: x6There were issues with some computations   A: x7There were issues with some computations   A: x8There were issues with some computations   A: x9There were issues with some computations   A: x10There were issues with some computations   A: x10
+Warning message:
+All models failed. Run `show_notes(.Last.tune.result)` for more information. 
+> 
+> bestTree <- cv_rf_results %>%
++   select_best(metric="roc_auc")
+Error in `estimate_tune_results()`:
+! All models failed. Run `show_notes(.Last.tune.result)` for more information.
+Backtrace:
+    ▆
+ 1. ├─cv_rf_results %>% select_best(metric = "roc_auc")
+ 2. ├─tune::select_best(., metric = "roc_auc")
+ 3. └─tune:::select_best.tune_results(., metric = "roc_auc")
+ 4.   ├─tune::show_best(...)
+ 5.   └─tune:::show_best.tune_results(...)
+ 6.     └─tune::.filter_perf_metrics(x, metric, eval_time)
+ 7.       └─tune::estimate_tune_results(x)
+ 8.         └─rlang::abort("All models failed. Run `show_notes(.Last.tune.result)` for more information.")
+Execution halted
